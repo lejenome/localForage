@@ -28,7 +28,7 @@ casper.test.begin "Testing localForage driver selection", (test) ->
     , 'localForage should not be available in the global context'
 
     @evaluate ->
-      require ['localforage'], (localForage) ->
+      require ['localForage'], (localForage) ->
         window._localForageDriver = localForage.driver
         __utils__.findOne('.status').id = 'driver-found'
 
@@ -39,7 +39,7 @@ casper.test.begin "Testing localForage driver selection", (test) ->
 
   casper.then ->
     @evaluate ->
-      require ['localforage'], (localForage) ->
+      require ['localForage'], (localForage) ->
         localForage.setDriver 'localStorageWrapper', (localForage) ->
           window._localForageDriver = localForage.driver
           __utils__.findOne('.status').id = 'driver-set'
@@ -51,7 +51,7 @@ casper.test.begin "Testing localForage driver selection", (test) ->
 
   casper.then ->
     @evaluate ->
-      require ['localforage'], (localForage) ->
+      require ['localForage'], (localForage) ->
         localForage.setDriver 'asyncStorage', (localForage) ->
           window._localForageDriver = localForage.driver
           __utils__.findOne('.status').id = 'driver-attempt'
