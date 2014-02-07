@@ -28,9 +28,7 @@ casper.test.begin "Testing localForage driver selection", (test) ->
     , 'localForage should not be available in the global context'
 
     @evaluate ->
-      __utils__.echo require
       require ['localforage'], (localForage) ->
-        __utils__.echo localForage
         window._localForageDriver = localForage.driver
         __utils__.findOne('.status').id = 'driver-found'
 
