@@ -32,6 +32,7 @@
             this._db.transaction(function(t) {
                 t.executeSql('CREATE TABLE IF NOT EXISTS localforage (id INTEGER PRIMARY KEY, key unique, value)');
             });
+<<<<<<< HEAD
             this.driver = 'webSQLStorage';
         },
         getItem: function(key, callback) {
@@ -76,6 +77,26 @@
                         valueToSave = SERIALIZED_MARKER + JSON.stringify(value);
                     } else {
                         valueToSave = value;
+=======
+        });
+    }
+
+    // Return the key located at key index X; essentially gets the key from a
+    // `WHERE id = ?`. This is the most efficient way I can think to implement
+    // this rarely-used (in my experience) part of the API, but it can seem
+    // inconsistent, because we do `INSERT OR REPLACE INTO` on `setItem()`, so
+    // the ID of each key will change every time it's updated. Perhaps a stored
+    // procedure for the `setItem()` SQL would solve this problem?
+    // TODO: Don't change ID on `setItem()`.
+    function key(n, callback) {
+        return new Promise(function(resolve, reject) {
+            db.transaction(function (t) {
+                t.executeSql('SELECT key FROM localforage WHERE id = ? LIMIT 1', [n + 1], function (t, results) {
+                    var result = results.rows.length ? results.rows.item(0).key : null;
+
+                    if (callback) {
+                        callback(result);
+>>>>>>> master
                     }
 
                     that._db.transaction(function(t) {
