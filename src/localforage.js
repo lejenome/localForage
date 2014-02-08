@@ -60,6 +60,7 @@
         _this[storageLibrary].prototype.remove = _this[storageLibrary].prototype.removeItem;
         _this[storageLibrary].prototype.removeAll = _this[storageLibrary].prototype.clear;
         LocalForage.prototype = _this[storageLibrary].prototype;
+        this.constructor = LocalForage;
         return new _this[storageLibrary](DB_NAME);
     }
     var localForage = new LocalForage(undefined, storageLibrary);

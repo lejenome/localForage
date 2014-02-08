@@ -1,3 +1,9 @@
+/*!
+  localForage -- Offline Storage, Improved
+  http://mozilla.github.io/localForage
+  (c) 2013-2014 Mozilla, Apache License 2.0
+*/
+
 // ES6 Promises Polyfill
 // https://github.com/jakearchibald/ES6-Promises
 // MIT license
@@ -837,8 +843,6 @@ requireModule('promise/polyfill').polyfill();
     };
 
     asyncStorage.prototype = {
-        constructor: asyncStorage,
-
         init: function(_DB_NAME) {
             this._DB_NAME = _DB_NAME || 'asyncStorage';
             this._db = null;
@@ -1065,7 +1069,7 @@ requireModule('promise/polyfill').polyfill();
     localStorageWrapper.prototype = {
         init: function(_DB_NAME) {
             if(_DB_NAME)
-                this._DB_NAME = _DB_NAME + ":";
+                this._DB_NAME = _DB_NAME + ':';
             else
                 this._DB_NAME = '';
             this._keys = {};
@@ -1157,9 +1161,10 @@ requireModule('promise/polyfill').polyfill();
                     if (that._DB_NAME === '')
                         localStorage.clear();
                     else {
-                        var k;
-                        for (k in that._keys)
+                        for (var k in that._keys)
                             localStorage.removeItem(that._DB_NAME + k);
+                        that._keys = {};
+                        that._keys_length = 0;
                     }
                     that._keys_length = 0;
                     if (callback) {
@@ -1192,13 +1197,13 @@ requireModule('promise/polyfill').polyfill();
         key: function(n, callback) {
             return (function(that) {
                 return new Promise(function(resolve, reject) {
-                    var k, pos = 0,
-                        result;
+                    var pos = 0,
+                        result = null;
                     //if we are not using a DB_NAME, we return the item at pos n on the whole localStorage data
                     if(that._DB_NAME === '')
                         result = localStorage.key(n);
-                    else if (n < that._keys_length)
-                        for (k in that._keys)
+                    else if (n >= 0 && n < that._keys_length)
+                        for (var k in that._keys)
                             if (n === pos++) {
                                 result = k;
                                 break;
@@ -1392,7 +1397,7 @@ requireModule('promise/polyfill').polyfill();
                 return new Promise(function(resolve, reject) {
                     that._db.transaction(function(t) {
                         t.executeSql('SELECT * FROM localforage WHERE id = ? LIMIT 1', [n + 1], function(t, results) {
-                            var result = results.rows.length ? results.rows.item(0).key : undefined;
+                            var result = results.rows.length ? results.rows.item(0).key : null;
 
                             if (callback) {
                                 callback(result);
@@ -1477,6 +1482,7 @@ requireModule('promise/polyfill').polyfill();
         _this[storageLibrary].prototype.remove = _this[storageLibrary].prototype.removeItem;
         _this[storageLibrary].prototype.removeAll = _this[storageLibrary].prototype.clear;
         LocalForage.prototype = _this[storageLibrary].prototype;
+        this.constructor = LocalForage;
         return new _this[storageLibrary](DB_NAME);
     }
     var localForage = new LocalForage(undefined, storageLibrary);

@@ -23,7 +23,7 @@
     localStorageWrapper.prototype = {
         init: function(_DB_NAME) {
             if(_DB_NAME)
-                this._DB_NAME = _DB_NAME + ":";
+                this._DB_NAME = _DB_NAME + ':';
             else
                 this._DB_NAME = '';
             this._keys = {};
@@ -115,9 +115,10 @@
                     if (that._DB_NAME === '')
                         localStorage.clear();
                     else {
-                        var k;
-                        for (k in that._keys)
+                        for (var k in that._keys)
                             localStorage.removeItem(that._DB_NAME + k);
+                        that._keys = {};
+                        that._keys_length = 0;
                     }
                     that._keys_length = 0;
                     if (callback) {
@@ -150,13 +151,13 @@
         key: function(n, callback) {
             return (function(that) {
                 return new Promise(function(resolve, reject) {
-                    var k, pos = 0,
-                        result;
+                    var pos = 0,
+                        result = null;
                     //if we are not using a DB_NAME, we return the item at pos n on the whole localStorage data
                     if(that._DB_NAME === '')
                         result = localStorage.key(n);
-                    else if (n < that._keys_length)
-                        for (k in that._keys)
+                    else if (n >= 0 && n < that._keys_length)
+                        for (var k in that._keys)
                             if (n === pos++) {
                                 result = k;
                                 break;

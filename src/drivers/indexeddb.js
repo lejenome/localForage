@@ -59,8 +59,6 @@
     };
 
     asyncStorage.prototype = {
-        constructor: asyncStorage,
-
         init: function(_DB_NAME) {
             this._DB_NAME = _DB_NAME || 'asyncStorage';
             this._db = null;
