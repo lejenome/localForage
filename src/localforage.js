@@ -26,64 +26,7 @@
                     window.mozIndexedDB || window.OIndexedDB ||
                     window.msIndexedDB;
 
-    // The actual localForage object that we expose as a module or via a global.
-    // It's extended by pulling in one of our other libraries.
-    var _this = this;
-    var localForage = {
-        setDriver: function(driverName, callback) {
-            return new Promise(function(resolve, reject) {
-                if ((!indexedDB && driverName === 'asyncStorage') ||
-                    (!window.openDatabase && driverName === 'webSQLStorage')) {
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    reject(localForage);
-
-                    return;
-                }
-
-                // We allow localForage to be declared as a module or as a library
-                // available without AMD/require.js.
-                if (moduleType === MODULE_TYPE_DEFINE) {
-                    require([driverName], function(lib) {
-                        localForage._extend(lib);
-
-                        if (callback) {
-                            callback(localForage);
-                        }
-
-                        resolve(localForage);
-                    });
-                } else if (moduleType === MODULE_TYPE_EXPORT) {
-                    localForage._extend(require('./' + driverName));
-
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    resolve(localForage);
-                } else {
-                    localForage._extend(_this[driverName]);
-
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    resolve(localForage);
-                }
-            });
-        },
-
-        _extend: function(libraryMethodsAndProperties) {
-            for (var i in libraryMethodsAndProperties) {
-                if (libraryMethodsAndProperties.hasOwnProperty(i)) {
-                    this[i] = libraryMethodsAndProperties[i];
-                }
-            }
-        }
-    };
-
+   
     var storageLibrary;
     // Check to see if IndexedDB is available; it's our preferred backend
     // library.
@@ -95,18 +38,45 @@
         storageLibrary = 'localStorageWrapper';
     }
 
-    // Set the (default) driver.
-    localForage.setDriver(storageLibrary);
-
+    var _this = this;
+    function LocalForage (DB_NAME, driverName) {
+        if ((!indexedDB && driverName === 'asyncStorage') ||
+            (!window.openDatabase && driverName === 'webSQLStorage')) {
+            driverName = 'localStorageWrapper';
+        }
+        storageLibrary = driverName || storageLibrary;
+        // We allow localForage to be declared as a module or as a library
+        // available without AMD/require.js.
+        if (moduleType === MODULE_TYPE_DEFINE) {
+            require([storageLibrary], function(lib) {
+                _this[storageLibrary] = lib;
+            });
+        } else if (moduleType === MODULE_TYPE_EXPORT) {
+            _this[storageLibrary] = require('./' + storageLibrary);
+        }
+        // Add pretty, less-verbose API.
+        _this[storageLibrary].prototype.get = _this[storageLibrary].prototype.getItem;
+        _this[storageLibrary].prototype.set = _this[storageLibrary].prototype.setItem;
+        _this[storageLibrary].prototype.remove = _this[storageLibrary].prototype.removeItem;
+        _this[storageLibrary].prototype.removeAll = _this[storageLibrary].prototype.clear;
+        LocalForage.prototype = _this[storageLibrary].prototype;
+        return new _this[storageLibrary](DB_NAME);
+    }
+    var localForage = new LocalForage(undefined, storageLibrary);
     // We allow localForage to be declared as a module or as a library
     // available without AMD/require.js.
     if (moduleType === MODULE_TYPE_DEFINE) {
         define('localforage', function() {
             return localForage;
         });
+        define('LocalForage', function() {
+            return localForage;
+        });
     } else if (moduleType === MODULE_TYPE_EXPORT) {
-        module.exports = localforage;
+        module.exports = {localforage: localForage, 
+                          LocalForage: LocalForage};
     } else {
         this.localforage = localForage;
+        this.LocalForage = LocalForage;
     }
 }).call(this);

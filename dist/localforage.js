@@ -818,11 +818,9 @@ requireModule('promise/polyfill').polyfill();
      * DOM elements, but they may include things like Blobs and typed arrays.
      */
 
-    var DBNAME = 'asyncStorage';
     var DBVERSION = 1;
     var STORENAME = 'keyvaluepairs';
     var Promise = window.Promise;
-    var db = null;
 
     // Initialize IndexedDB; fall back to vendor-prefixed versions if needed.
     var indexedDB = indexedDB || window.indexedDB || window.webkitIndexedDB ||
@@ -833,140 +831,149 @@ requireModule('promise/polyfill').polyfill();
     if (!indexedDB) {
         return;
     }
+    
+    var asyncStorage = function(_DB_NAME) {
+        this.init.apply(this, arguments);
+    };
 
-    function withStore(type, f) {
-        if (db) {
-            f(db.transaction(STORENAME, type).objectStore(STORENAME));
-        } else {
-            var openreq = indexedDB.open(DBNAME, DBVERSION);
-            openreq.onerror = function withStoreOnError() {
-                console.error("asyncStorage: can't open database:", openreq.error.name);
-            };
-            openreq.onupgradeneeded = function withStoreOnUpgradeNeeded() {
-                // First time setup: create an empty object store
-                openreq.result.createObjectStore(STORENAME);
-            };
-            openreq.onsuccess = function withStoreOnSuccess() {
-                db = openreq.result;
-                f(db.transaction(STORENAME, type).objectStore(STORENAME));
-            };
-        }
-    }
+    asyncStorage.prototype = {
+        constructor: asyncStorage,
 
-    function getItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            withStore('readonly', function getItemBody(store) {
-                var req = store.get(key);
-                req.onsuccess = function getItemOnSuccess() {
-                    var value = req.result;
-                    if (value === undefined) {
-                        value = null;
-                    }
+        init: function(_DB_NAME) {
+            this._DB_NAME = _DB_NAME || 'asyncStorage';
+            this._db = null;
+            this.driver = 'asyncStorage';
+        },
 
-                    if (callback) {
-                        callback(value);
-                    }
-
-                    resolve(value);
+        _withStore: function(type, f) {
+            var that = this;
+            if (that._db) {
+                f(that._db.transaction(STORENAME, type).objectStore(STORENAME));
+            } else {
+                var openreq = indexedDB.open(that._DB_NAME, DBVERSION);
+                openreq.onerror = function withStoreOnError() {
+                    console.error("asyncStorage: can't open database:", openreq.error.name);
                 };
-                req.onerror = function getItemOnError() {
-                    console.error('Error in asyncStorage.getItem(): ', req.error.name);
+                openreq.onupgradeneeded = function withStoreOnUpgradeNeeded() {
+                    // First time setup: create an empty object store
+                    openreq.result.createObjectStore(STORENAME);
                 };
-            });
-        });
-    }
-
-    function setItem(key, value, callback) {
-        return new Promise(function(resolve, reject) {
-            withStore('readwrite', function setItemBody(store) {
-                var req = store.put(value, key);
-                req.onsuccess = function setItemOnSuccess() {
-                    if (callback) {
-                        callback(value);
-                    }
-
-                    resolve(value);
+                openreq.onsuccess = function withStoreOnSuccess() {
+                    that._db = openreq.result;
+                    f(that._db.transaction(STORENAME, type).objectStore(STORENAME));
                 };
-                req.onerror = function setItemOnError() {
-                    console.error('Error in asyncStorage.setItem(): ', req.error.name);
-                };
-            });
-        });
-    }
-
-    function removeItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            withStore('readwrite', function removeItemBody(store) {
-                var req = store.delete(key);
-                req.onsuccess = function removeItemOnSuccess() {
-                    if (callback) {
-                        callback();
-                    }
-
-                    resolve();
-                };
-                req.onerror = function removeItemOnError() {
-                    console.error('Error in asyncStorage.removeItem(): ', req.error.name);
-                };
-            });
-        });
-    }
-
-    function clear(callback) {
-        return new Promise(function(resolve, reject) {
-            withStore('readwrite', function clearBody(store) {
-                var req = store.clear();
-                req.onsuccess = function clearOnSuccess() {
-                    if (callback) {
-                        callback();
-                    }
-
-                    resolve();
-                };
-                req.onerror = function clearOnError() {
-                    console.error('Error in asyncStorage.clear(): ', req.error.name);
-                };
-            });
-        });
-    }
-
-    function length(callback) {
-        return new Promise(function(resolve, reject) {
-            withStore('readonly', function lengthBody(store) {
-                var req = store.count();
-                req.onsuccess = function lengthOnSuccess() {
-                    if (callback) {
-                        callback(req.result);
-                    }
-
-                    resolve(req.result);
-                };
-                req.onerror = function lengthOnError() {
-                    console.error('Error in asyncStorage.length(): ', req.error.name);
-                };
-            });
-        });
-    }
-
-    function key(n, callback) {
-        return new Promise(function(resolve, reject) {
-            if (n < 0) {
-                if (callback) {
-                    callback(null);
-                }
-
-                resolve(null);
-
-                return;
             }
+        },
 
-            withStore('readonly', function keyBody(store) {
-                var advanced = false;
-                var req = store.openCursor();
-                req.onsuccess = function keyOnSuccess() {
-                    var cursor = req.result;
-                    if (!cursor) {
-                        // this means there weren't enough keys
+        getItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    asyncStorage.prototype._withStore.call(that, 'readonly', function getItemBody(store) {
+                        var req = store.get(key);
+                        req.onsuccess = function getItemOnSuccess() {
+                            var value = req.result;
+                            if (value === undefined) {
+                                value = null;
+                            }
+
+                            if (callback) {
+                                callback(value);
+                            }
+
+                            resolve(value);
+                        };
+                        req.onerror = function getItemOnError() {
+                            console.error('Error in asyncStorage.getItem(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        },
+
+        setItem: function(key, value, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    asyncStorage.prototype._withStore.call(that, 'readwrite', function setItemBody(store) {
+                        var req = store.put(value, key);
+                        req.onsuccess = function setItemOnSuccess() {
+                            if (callback) {
+                                callback(value);
+                            }
+
+                            resolve(value);
+                        };
+                        req.onerror = function setItemOnError() {
+                            console.error('Error in asyncStorage.setItem(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        },
+
+        removeItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    asyncStorage.prototype._withStore.call(that, 'readwrite', function removeItemBody(store) {
+                        var req = store.delete(key);
+                        req.onsuccess = function removeItemOnSuccess() {
+                            if (callback) {
+                                callback();
+                            }
+
+                            resolve();
+                        };
+                        req.onerror = function removeItemOnError() {
+                            console.error('Error in asyncStorage.removeItem(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        },
+
+        clear: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    asyncStorage.prototype._withStore.call(that, 'readwrite', function clearBody(store) {
+                        var req = store.clear();
+                        req.onsuccess = function clearOnSuccess() {
+                            if (callback) {
+                                callback();
+                            }
+
+                            resolve();
+                        };
+                        req.onerror = function clearOnError() {
+                            console.error('Error in asyncStorage.clear(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        },
+
+        length: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    asyncStorage.prototype._withStore.call(that, 'readonly', function lengthBody(store) {
+                        var req = store.count();
+                        req.onsuccess = function lengthOnSuccess() {
+                            if (callback) {
+                                callback(req.result);
+                            }
+
+                            resolve(req.result);
+                        };
+                        req.onerror = function lengthOnError() {
+                            console.error('Error in asyncStorage.length(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        },
+
+        key: function(n, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    if (n < 0) {
                         if (callback) {
                             callback(null);
                         }
@@ -975,44 +982,52 @@ requireModule('promise/polyfill').polyfill();
 
                         return;
                     }
-                    if (n === 0) {
-                        // We have the first key, return it if that's what they wanted
-                        if (callback) {
-                            callback(cursor.key);
-                        }
 
-                        resolve(cursor.key);
-                    } else {
-                        if (!advanced) {
-                            // Otherwise, ask the cursor to skip ahead n records
-                            advanced = true;
-                            cursor.advance(n);
-                        } else {
-                            // When we get here, we've got the nth key.
-                            if (callback) {
-                                callback(cursor.key);
+                    asyncStorage.prototype._withStore.call(that, 'readonly', function keyBody(store) {
+                        var advanced = false;
+                        var req = store.openCursor();
+                        req.onsuccess = function keyOnSuccess() {
+                            var cursor = req.result;
+                            if (!cursor) {
+                                // this means there weren't enough keys
+                                if (callback) {
+                                    callback(null);
+                                }
+
+                                resolve(null);
+
+                                return;
                             }
+                            if (n === 0) {
+                                // We have the first key, return it if that's what they wanted
+                                if (callback) {
+                                    callback(cursor.key);
+                                }
 
-                            resolve(cursor.key);
-                        }
-                    }
-                };
+                                resolve(cursor.key);
+                            } else {
+                                if (!advanced) {
+                                    // Otherwise, ask the cursor to skip ahead n records
+                                    advanced = true;
+                                    cursor.advance(n);
+                                } else {
+                                    // When we get here, we've got the nth key.
+                                    if (callback) {
+                                        callback(cursor.key);
+                                    }
 
-                req.onerror = function keyOnError() {
-                    console.error('Error in asyncStorage.key(): ', req.error.name);
-                };
-            });
-        });
-    }
+                                    resolve(cursor.key);
+                                }
+                            }
+                        };
 
-    var asyncStorage = {
-        driver: 'asyncStorage',
-        getItem: getItem,
-        setItem: setItem,
-        removeItem: removeItem,
-        clear: clear,
-        length: length,
-        key: key
+                        req.onerror = function keyOnError() {
+                            console.error('Error in asyncStorage.key(): ', req.error.name);
+                        };
+                    });
+                });
+            })(this);
+        }
     };
 
     if (typeof define === 'function' && define.amd) {
@@ -1043,130 +1058,169 @@ requireModule('promise/polyfill').polyfill();
     // Initialize localStorage and create a variable to use throughout the code.
     var localStorage = window.localStorage;
 
-    // Remove all keys from the datastore, effectively destroying all data in
-    // the app's key/value store!
-    function clear(callback) {
-        return new Promise(function(resolve, reject) {
-            localStorage.clear();
+    var localStorageWrapper = function(_DB_NAME) {
+        this.init.apply(this, arguments);
+    };
 
-            if (callback) {
-                callback();
-            }
+    localStorageWrapper.prototype = {
+        init: function(_DB_NAME) {
+            if(_DB_NAME)
+                this._DB_NAME = _DB_NAME + ":";
+            else
+                this._DB_NAME = '';
+            this._keys = {};
+            this._keys_length = 0;
+            this.driver = 'localStorageWrapper';
+        },
+        // Retrieve an item from the store. Unlike the original async_storage
+        // library in Gaia, we don't modify return values at all. If a key's value
+        // is `undefined`, we pass that value to the callback function.
+        getItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    try {
+                        var result = localStorage.getItem(that._DB_NAME + key);
 
-            resolve();
-        });
-    }
+                        // If a result was found, parse it from serialized JSON into a
+                        // JS object. If result isn't truthy, the key is likely
+                        // undefined and we'll pass it straight to the callback.
+                        if (result) {
+                            result = JSON.parse(result);
+                        }
 
-    // Retrieve an item from the store. Unlike the original async_storage
-    // library in Gaia, we don't modify return values at all. If a key's value
-    // is `undefined`, we pass that value to the callback function.
-    function getItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            try {
-                var result = localStorage.getItem(key);
+                        if (callback) {
+                            callback(result);
+                        }
 
-                // If a result was found, parse it from serialized JSON into a
-                // JS object. If result isn't truthy, the key is likely
-                // undefined and we'll pass it straight to the callback.
-                if (result) {
-                    result = JSON.parse(result);
-                }
+                        resolve(result);
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            })(this);
+        },
+        // Set a key's value and run an optional callback once the value is set.
+        // Unlike Gaia's implementation, the callback function is passed the value,
+        // in case you want to operate on that value only after you're sure it
+        // saved, or something like that.
+        setItem: function(key, value, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    // Save the original value to pass to the callback.
+                    var originalValue = value;
 
-                if (callback) {
-                    callback(result);
-                }
+                    try {
+                        value = JSON.stringify(value);
+                    } catch (e) {
+                        console.error("Couldn't convert value into a JSON string: ",
+                            value);
+                        reject(e);
+                    }
 
-                resolve(result);
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }
+                    localStorage.setItem(that._DB_NAME + key, value);
 
-    // Same as localStorage's key() method, except takes a callback.
-    function key(n, callback) {
-        return new Promise(function(resolve, reject) {
-            var result = localStorage.key(n);
+                    if(!that._keys.hasOwnProperty(key)){
+                        that._keys[key] = true;
+                        that._keys_length++;
+                    }
+                    if (callback) {
+                        callback(originalValue);
+                    }
 
-            if (callback) {
-                callback(result);
-            }
+                    resolve(originalValue);
+                });
+            })(this);
+        },
+        // Remove an item from the store, nice and simple.
+        removeItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    if (key in that._keys) {
+                        localStorage.removeItem(that._DB_NAME + key);
+                        delete that._keys[key];
+                        that._keys_length--;
+                    }
+                    if (callback) {
+                        callback();
+                    }
 
-            resolve(result);
-        });
-    }
+                    resolve();
+                });
+            })(this);
+        },
+        // Remove all keys from the datastore, effectively destroying all data in
+        // the app's key/value store!
+        clear: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    // if we are not using a DB_NAME, we clear the whole localStorage data
+                    if (that._DB_NAME === '')
+                        localStorage.clear();
+                    else {
+                        var k;
+                        for (k in that._keys)
+                            localStorage.removeItem(that._DB_NAME + k);
+                    }
+                    that._keys_length = 0;
+                    if (callback) {
+                        callback();
+                    }
 
-    // Supply the number of keys in the datastore to the callback function.
-    function length(callback) {
-        return new Promise(function(resolve, reject) {
-            var result = localStorage.length;
+                    resolve();
+                });
+            })(this);
+        },
+        // Supply the number of keys in the datastore to the callback function.
+        length: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    var result;
+                    //if we are not using a DB_NAME, we return the whole localStorage length
+                    if(that._DB_NAME === '')
+                        result = localStorage.length;
+                    else
+                        result = that._keys_length;
+                    if (callback) {
+                        callback(result);
+                    }
 
-            if (callback) {
-                callback(result);
-            }
+                    resolve(result);
+                });
+            })(this);
+        },
+        // Same as localStorage's key() method, except takes a callback.
+        key: function(n, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    var k, pos = 0,
+                        result;
+                    //if we are not using a DB_NAME, we return the item at pos n on the whole localStorage data
+                    if(that._DB_NAME === '')
+                        result = localStorage.key(n);
+                    else if (n < that._keys_length)
+                        for (k in that._keys)
+                            if (n === pos++) {
+                                result = k;
+                                break;
+                            }
+                    if (callback) {
+                        callback(result);
+                    }
 
-            resolve(result);
-        });
-    }
+                    resolve(result);
+                });
+            })(this);
+        }
 
-    // Remove an item from the store, nice and simple.
-    function removeItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            localStorage.removeItem(key);
-
-            if (callback) {
-                callback();
-            }
-
-            resolve();
-        });
-    }
-
-    // Set a key's value and run an optional callback once the value is set.
-    // Unlike Gaia's implementation, the callback function is passed the value,
-    // in case you want to operate on that value only after you're sure it
-    // saved, or something like that.
-    function setItem(key, value, callback) {
-        return new Promise(function(resolve, reject) {
-            // Save the original value to pass to the callback.
-            var originalValue = value;
-
-            try {
-                value = JSON.stringify(value);
-            } catch (e) {
-                console.error("Couldn't convert value into a JSON string: ",
-                              value);
-                reject(e);
-            }
-
-            localStorage.setItem(key, value);
-
-            if (callback) {
-                callback(originalValue);
-            }
-
-            resolve(originalValue);
-        });
-    }
+    };
 
     // Standard error handler for all IndexedDB transactions. Simply logs the
     // error to the console.
     function _errorHandler(request, errorText) {
         console.error((errorText || 'storage error') + ': ',
-                      request.error.name);
+            request.error.name);
     }
 
-
-    var localStorageWrapper = {
-        driver: 'localStorageWrapper',
-        // Default API, from Gaia/localStorage.
-        getItem: getItem,
-        setItem: setItem,
-        removeItem: removeItem,
-        clear: clear,
-        length: length,
-        key: key
-    };
 
     if (typeof define === 'function' && define.amd) {
         define('localStorageWrapper', function() {
@@ -1181,12 +1235,11 @@ requireModule('promise/polyfill').polyfill();
 (function() {
     'use strict';
 
-    var DB_NAME = 'localforage';
     // Default DB size is 5MB, as it's the highest size we can use without
     // a prompt.
     var DB_SIZE = 5 * 1024 * 1024;
     var DB_VERSION = '1.0';
-    var SERIALIZED_MARKER = '__lfsc__:';
+    var SERIALIZED_MARKER = '_lfsc_:';
     var SERIALIZED_MARKER_LENGTH = SERIALIZED_MARKER.length;
     var STORE_NAME = 'keyvaluepairs';
     var Promise = window.Promise;
@@ -1196,150 +1249,160 @@ requireModule('promise/polyfill').polyfill();
         return;
     }
 
-    // Open the database; the openDatabase API will automatically create it for
-    // us if it doesn't exist.
-    var db = window.openDatabase(DB_NAME, DB_VERSION, STORE_NAME, DB_SIZE);
+    var webSQLStorage = function(_DB_NAME) {
+        this.init.apply(this, arguments);
+    };
 
-    // Create our key/value table if it doesn't exist.
-    // TODO: Technically I can imagine this being as race condition, as I'm not
-    // positive on the WebSQL API enough to be sure that other transactions
-    // won't be run before this? But I assume not.
-    db.transaction(function (t) {
-        t.executeSql('CREATE TABLE IF NOT EXISTS localforage (id INTEGER PRIMARY KEY, key unique, value)');
-    });
-
-    function getItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            db.transaction(function (t) {
-                t.executeSql('SELECT * FROM localforage WHERE key = ? LIMIT 1', [key], function (t, results) {
-                    var result = results.rows.length ? results.rows.item(0).value : null;
-
-                    // Check to see if this is serialized content we need to
-                    // unpack.
-                    if (result && result.substr(0, SERIALIZED_MARKER_LENGTH) === SERIALIZED_MARKER) {
-                        try {
-                            result = JSON.parse(result.slice(SERIALIZED_MARKER_LENGTH));
-                        } catch (e) {
-                            reject(e);
-                        }
-                    }
-
-                    if (callback) {
-                        callback(result);
-                    }
-
-                    resolve(result);
-                }, null);
+    webSQLStorage.prototype = {
+        init: function(_DB_NAME) {
+            this._DB_NAME = _DB_NAME || 'localforage';
+            // Open the database; the openDatabase API will automatically create it for
+            // us if it doesn't exist.
+            this._db = window.openDatabase(this._DB_NAME, DB_VERSION, STORE_NAME, DB_SIZE);
+            // Create our key/value table if it doesn't exist.
+            // TODO: Technically I can imagine this being as race condition, as I'm not
+            // positive on the WebSQL API enough to be sure that other transactions
+            // won't be run before this? But I assume not.
+            this._db.transaction(function(t) {
+                t.executeSql('CREATE TABLE IF NOT EXISTS localforage (id INTEGER PRIMARY KEY, key unique, value)');
             });
-        });
-    }
+            this.driver = 'webSQLStorage';
+        },
+        getItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    that._db.transaction(function(t) {
+                        t.executeSql('SELECT * FROM localforage WHERE key = ? LIMIT 1', [key], function(t, results) {
+                            var result = results.rows.length ? results.rows.item(0).value : null;
 
-    function setItem(key, value, callback) {
-        return new Promise(function(resolve, reject) {
-            var valueToSave;
-            // We need to serialize certain types of objects using WebSQL;
-            // otherwise they'll get stored as strings as be useless when we
-            // use getItem() later.
-            if (typeof(value) === 'array' || typeof(value) === 'boolean' || typeof(value) === 'number' || typeof(value) === 'object') {
-                // Mark the content as "localForage serialized content" so we
-                // know to run JSON.parse() on it when we get it back out from
-                // the database.
-                valueToSave = SERIALIZED_MARKER + JSON.stringify(value);
-            } else {
-                valueToSave = value;
-            }
+                            // Check to see if this is serialized content we need to
+                            // unpack.
+                            if (result && result.substr(0, SERIALIZED_MARKER_LENGTH) === SERIALIZED_MARKER) {
+                                try {
+                                    result = JSON.parse(result.slice(SERIALIZED_MARKER_LENGTH));
+                                } catch (e) {
+                                    reject(e);
+                                }
+                            }
 
-            db.transaction(function (t) {
-                t.executeSql('INSERT OR REPLACE INTO localforage (key, value) VALUES (?, ?)', [key, valueToSave], function() {
-                    if (callback) {
-                        callback(value);
+                            if (callback) {
+                                callback(result);
+                            }
+
+                            resolve(result);
+                        }, null);
+                    });
+                });
+            })(this);
+        },
+
+        setItem: function(key, value, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    var valueToSave;
+                    // We need to serialize certain types of objects using WebSQL;
+                    // otherwise they'll get stored as strings as be useless when we
+                    // use getItem() later.
+                    if (typeof (value) === 'array' || typeof (value) === 'boolean' || typeof (value) === 'number' || typeof (value) === 'object') {
+                        // Mark the content as "localForage serialized content" so we
+                        // know to run JSON.parse() on it when we get it back out from
+                        // the database.
+                        valueToSave = SERIALIZED_MARKER + JSON.stringify(value);
+                    } else {
+                        valueToSave = value;
                     }
 
-                    resolve(value);
-                }, null);
-            });
-        });
-    }
+                    that._db.transaction(function(t) {
+                        t.executeSql('INSERT OR REPLACE INTO localforage (key, value) VALUES (?, ?)', [key, valueToSave], function() {
+                            if (callback) {
+                                callback(value);
+                            }
 
-    function removeItem(key, callback) {
-        return new Promise(function(resolve, reject) {
-            db.transaction(function (t) {
-                t.executeSql('DELETE FROM localforage WHERE key = ? LIMIT 1', [key], function() {
-                    if (callback) {
-                        callback();
-                    }
+                            resolve(value);
+                        }, null);
+                    });
+                });
+            })(this);
+        },
 
-                    resolve();
-                }, null);
-            });
-        });
-    }
+        removeItem: function(key, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    that._db.transaction(function(t) {
+                        t.executeSql('DELETE FROM localforage WHERE key = ? LIMIT 1', [key], function() {
+                            if (callback) {
+                                callback();
+                            }
 
-    // Deletes every item in the table with a TRUNCATE call.
-    // TODO: Find out if this resets the AUTO_INCREMENT number.
-    function clear(callback) {
-        return new Promise(function(resolve, reject) {
-            db.transaction(function (t) {
-                t.executeSql('DELETE FROM localforage', [], function(t, results) {
-                    if (callback) {
-                        callback();
-                    }
+                            resolve();
+                        }, null);
+                    });
+                });
+            })(this);
+        },
 
-                    resolve();
-                }, null);
-            });
-        });
-    }
+        // Deletes every item in the table with a TRUNCATE call.
+        // TODO: Find out if this resets the AUTO_INCREMENT number.
+        clear: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    that._db.transaction(function(t) {
+                        t.executeSql('DELETE FROM localforage', [], function(t, results) {
+                            if (callback) {
+                                callback();
+                            }
 
-    // Does a simple `COUNT(key)` to get the number of items stored in
-    // localForage.
-    function length(callback) {
-        return new Promise(function(resolve, reject) {
-            db.transaction(function (t) {
-                // Ahhh, SQL makes this one soooooo easy.
-                t.executeSql('SELECT COUNT(key) as c FROM localforage', [], function (t, results) {
-                    var result = results.rows.item(0).c;
+                            resolve();
+                        }, null);
+                    });
+                });
+            })(this);
+        },
 
-                    if (callback) {
-                        callback(result);
-                    }
+        // Does a simple `COUNT(key)` to get the number of items stored in
+        // localForage.
+        length: function(callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    that._db.transaction(function(t) {
+                        // Ahhh, SQL makes this one soooooo easy.
+                        t.executeSql('SELECT COUNT(key) as c FROM localforage', [], function(t, results) {
+                            var result = results.rows.item(0).c;
 
-                    resolve(result);
-                }, null);
-            });
-        });
-    }
+                            if (callback) {
+                                callback(result);
+                            }
 
-    // Return the value name of key located at key number X; essentially does a
-    // `WHERE id = ?`. This is the most efficient way I can think to implement
-    // this rarely-used (in my experience) part of the API, but it can seem
-    // inconsistent, because we do `INSERT OR REPLACE INTO` on `setItem()`, so
-    // the ID of each key will change every time it's updated. Perhaps a stored
-    // procedure for the `setItem()` SQL would solve this problem?
-    function key(n, callback) {
-        return new Promise(function(resolve, reject) {
-            db.transaction(function (t) {
-                t.executeSql('SELECT * FROM localforage WHERE id = ? LIMIT 1', [n + 1], function (t, results) {
-                    var result = results.rows.length ? results.rows.item(0).key : undefined;
+                            resolve(result);
+                        }, null);
+                    });
+                });
+            })(this);
+        },
 
-                    if (callback) {
-                        callback(result);
-                    }
+        // Return the value located at key number X; essentially does a
+        // `WHERE id = ?`. This is the most efficient way I can think to implement
+        // this rarely-used (in my experience) part of the API, but it can seem
+        // inconsistent, because we do `INSERT OR REPLACE INTO` on `setItem()`, so
+        // the ID of each key will change every time it's updated. Perhaps a stored
+        // procedure for the `setItem()` SQL would solve this problem?
+        key: function(n, callback) {
+            return (function(that) {
+                return new Promise(function(resolve, reject) {
+                    that._db.transaction(function(t) {
+                        t.executeSql('SELECT * FROM localforage WHERE id = ? LIMIT 1', [n + 1], function(t, results) {
+                            var result = results.rows.length ? results.rows.item(0).key : undefined;
 
-                    resolve(result);
-                }, null);
-            });
-        });
-    }
+                            if (callback) {
+                                callback(result);
+                            }
 
-    var webSQLStorage = {
-        driver: 'webSQLStorage',
-        getItem: getItem,
-        setItem: setItem,
-        removeItem: removeItem,
-        clear: clear,
-        length: length,
-        key: key
+                            resolve(result);
+                        }, null);
+                    });
+                });
+            })(this);
+        }
     };
 
     if (typeof define === 'function' && define.amd) {
@@ -1380,64 +1443,7 @@ requireModule('promise/polyfill').polyfill();
                     window.mozIndexedDB || window.OIndexedDB ||
                     window.msIndexedDB;
 
-    // The actual localForage object that we expose as a module or via a global.
-    // It's extended by pulling in one of our other libraries.
-    var _this = this;
-    var localForage = {
-        setDriver: function(driverName, callback) {
-            return new Promise(function(resolve, reject) {
-                if ((!indexedDB && driverName === 'asyncStorage') ||
-                    (!window.openDatabase && driverName === 'webSQLStorage')) {
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    reject(localForage);
-
-                    return;
-                }
-
-                // We allow localForage to be declared as a module or as a library
-                // available without AMD/require.js.
-                if (moduleType === MODULE_TYPE_DEFINE) {
-                    require([driverName], function(lib) {
-                        localForage._extend(lib);
-
-                        if (callback) {
-                            callback(localForage);
-                        }
-
-                        resolve(localForage);
-                    });
-                } else if (moduleType === MODULE_TYPE_EXPORT) {
-                    localForage._extend(require('./' + driverName));
-
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    resolve(localForage);
-                } else {
-                    localForage._extend(_this[driverName]);
-
-                    if (callback) {
-                        callback(localForage);
-                    }
-
-                    resolve(localForage);
-                }
-            });
-        },
-
-        _extend: function(libraryMethodsAndProperties) {
-            for (var i in libraryMethodsAndProperties) {
-                if (libraryMethodsAndProperties.hasOwnProperty(i)) {
-                    this[i] = libraryMethodsAndProperties[i];
-                }
-            }
-        }
-    };
-
+   
     var storageLibrary;
     // Check to see if IndexedDB is available; it's our preferred backend
     // library.
@@ -1449,18 +1455,45 @@ requireModule('promise/polyfill').polyfill();
         storageLibrary = 'localStorageWrapper';
     }
 
-    // Set the (default) driver.
-    localForage.setDriver(storageLibrary);
-
+    var _this = this;
+    function LocalForage (DB_NAME, driverName) {
+        if ((!indexedDB && driverName === 'asyncStorage') ||
+            (!window.openDatabase && driverName === 'webSQLStorage')) {
+            driverName = 'localStorageWrapper';
+        }
+        storageLibrary = driverName || storageLibrary;
+        // We allow localForage to be declared as a module or as a library
+        // available without AMD/require.js.
+        if (moduleType === MODULE_TYPE_DEFINE) {
+            require([storageLibrary], function(lib) {
+                _this[storageLibrary] = lib;
+            });
+        } else if (moduleType === MODULE_TYPE_EXPORT) {
+            _this[storageLibrary] = require('./' + storageLibrary);
+        }
+        // Add pretty, less-verbose API.
+        _this[storageLibrary].prototype.get = _this[storageLibrary].prototype.getItem;
+        _this[storageLibrary].prototype.set = _this[storageLibrary].prototype.setItem;
+        _this[storageLibrary].prototype.remove = _this[storageLibrary].prototype.removeItem;
+        _this[storageLibrary].prototype.removeAll = _this[storageLibrary].prototype.clear;
+        LocalForage.prototype = _this[storageLibrary].prototype;
+        return new _this[storageLibrary](DB_NAME);
+    }
+    var localForage = new LocalForage(undefined, storageLibrary);
     // We allow localForage to be declared as a module or as a library
     // available without AMD/require.js.
     if (moduleType === MODULE_TYPE_DEFINE) {
         define('localforage', function() {
             return localForage;
         });
+        define('LocalForage', function() {
+            return localForage;
+        });
     } else if (moduleType === MODULE_TYPE_EXPORT) {
-        module.exports = localforage;
+        module.exports = {localforage: localForage, 
+                          LocalForage: LocalForage};
     } else {
         this.localforage = localForage;
+        this.LocalForage = LocalForage;
     }
 }).call(this);
