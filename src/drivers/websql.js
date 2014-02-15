@@ -8,7 +8,7 @@
     // TODO: Add a way to increase this size programmatically?
     var DB_SIZE = 4980736;
     var DB_VERSION = '1.0';
-    var SERIALIZED_MARKER = '__lfsc__';
+    var SERIALIZED_MARKER = '__lfsc__:';
     var SERIALIZED_MARKER_LENGTH = SERIALIZED_MARKER.length;
     var STORE_NAME = 'keyvaluepairs';
     var Promise = window.Promise;
