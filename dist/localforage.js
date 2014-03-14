@@ -1260,14 +1260,27 @@ requireModule('promise/polyfill').polyfill();
             }
 
             callback(null, marker + str);
-        } else if (valueString == "[object Blob]") {
+        } else if (valueString === "[object Blob]") {
             // Conver the blob to a binaryArray and then to a string.
             var fileReader = new FileReader();
+
             fileReader.onload = function() {
-                var resializedString = String.fromCharCode.apply(
-                    null, new Uint16Array(this.result));
-                callback(null, SERIALIZED_MARKER + TYPE_BLOB + resializedString);
+                var str = '';
+                var uint16Array = new Uint16Array(this.result);
+
+                try {
+                    str = String.fromCharCode.apply(null, uint16Array);
+                } catch (e) {
+                    // This is a fallback implementation in case the first one does
+                    // not work. This is required to get the phantomjs passing...
+                    for (var i = 0; i < uint16Array.length; i++) {
+                        str += String.fromCharCode(uint16Array[i]);
+                    }
+                }
+
+                callback(null, SERIALIZED_MARKER + TYPE_BLOB + str);
             };
+
             fileReader.readAsArrayBuffer(value);
         } else {
             try {
@@ -1676,11 +1689,29 @@ requireModule('promise/polyfill').polyfill();
         } else if (valueString === "[object Blob]") {
             // Conver the blob to a binaryArray and then to a string.
             var fileReader = new FileReader();
+
             fileReader.onload = function() {
-                var resializedString = String.fromCharCode.apply(
-                    null, new Uint16Array(this.result));
-                callback(null, SERIALIZED_MARKER + TYPE_BLOB + resializedString);
+                // base64-arraybuffer
+                var bytes = new Uint8Array(this.result);
+                var i;
+                var base64String = '';
+
+                for (i = 0; i < bytes.length; i += 3) {
+                    base64String += BASE_CHARS[bytes[i] >> 2];
+                    base64String += BASE_CHARS[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+                    base64String += BASE_CHARS[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+                    base64String += BASE_CHARS[bytes[i + 2] & 63];
+                }
+
+                if ((bytes.length % 3) === 2) {
+                    base64String = base64String.substring(0, base64String.length - 1) + "=";
+                } else if (bytes.length % 3 === 1) {
+                    base64String = base64String.substring(0, base64String.length - 2) + "==";
+                }
+
+                callback(null, SERIALIZED_MARKER + TYPE_BLOB + base64String);
             };
+
             fileReader.readAsArrayBuffer(value);
         } else {
             try {

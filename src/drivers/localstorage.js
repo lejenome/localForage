@@ -245,14 +245,27 @@
             }
 
             callback(null, marker + str);
-        } else if (valueString == "[object Blob]") {
+        } else if (valueString === "[object Blob]") {
             // Conver the blob to a binaryArray and then to a string.
             var fileReader = new FileReader();
+
             fileReader.onload = function() {
-                var resializedString = String.fromCharCode.apply(
-                    null, new Uint16Array(this.result));
-                callback(null, SERIALIZED_MARKER + TYPE_BLOB + resializedString);
+                var str = '';
+                var uint16Array = new Uint16Array(this.result);
+
+                try {
+                    str = String.fromCharCode.apply(null, uint16Array);
+                } catch (e) {
+                    // This is a fallback implementation in case the first one does
+                    // not work. This is required to get the phantomjs passing...
+                    for (var i = 0; i < uint16Array.length; i++) {
+                        str += String.fromCharCode(uint16Array[i]);
+                    }
+                }
+
+                callback(null, SERIALIZED_MARKER + TYPE_BLOB + str);
             };
+
             fileReader.readAsArrayBuffer(value);
         } else {
             try {

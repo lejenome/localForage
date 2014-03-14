@@ -348,53 +348,54 @@ casper.test.begin "Testing #{casper.DRIVER_NAME} driver", (test) ->
       , 'setItem() returns null for undefined'
 
   # ArrayBuffer
-  # unless casper.ENGINE is 'slimerjs' and casper.DRIVER is 'localStorageWrapper'
-  #   casper.then ->
-  #     # Test that all types of binary data are saved and retrieved properly.
-  #     test.info "Testing binary data types"
+  casper.then ->
+    # Test that all types of binary data are saved and retrieved properly.
+    test.info "Testing binary data types"
 
-  #     @evaluate ->
-  #       array = new ArrayBuffer(16)
-  #       localforage.setItem('ArrayBuffer', array).then (writeValue) ->
-  #         localforage.getItem('ArrayBuffer').then (readValue) ->
-  #           window._testValue = readValue
-  #           __utils__.findOne('.status').id = 'ArrayBuffer'
+    @evaluate ->
+      array = new ArrayBuffer(16)
+      localforage.setItem('ArrayBuffer', array).then (writeValue) ->
+        localforage.getItem('ArrayBuffer').then (readValue) ->
+          window._testValue = readValue
+          __utils__.findOne('.status').id = 'ArrayBuffer'
 
-  #     @waitForSelector '#ArrayBuffer', ->
-  #       test.assertEval ->
-  #         window._testValue.toString() is '[object ArrayBuffer]'
-  #       , 'setItem() and getItem() for ArrayBuffer returns value of type ArrayBuffer'
+    @waitForSelector '#ArrayBuffer', ->
+      test.assertEval ->
+        window._testValue.toString() is '[object ArrayBuffer]'
+      , 'setItem() and getItem() for ArrayBuffer returns value of type ArrayBuffer'
 
-  #       test.assertEval ->
-  #         window._testValue.byteLength is 16
-  #       , 'ArrayBuffer can be saved and retrieved properly'
+      test.assertEval ->
+        window._testValue.byteLength is 16
+      , 'ArrayBuffer can be saved and retrieved properly'
 
   # Blob Data
-  # casper.then ->
-  #   @evaluate ->
-  #     request = new XMLHttpRequest()
+  casper.then ->
+    @evaluate ->
+      request = new XMLHttpRequest()
 
-  #     # Let's get the first user's photo.
-  #     request.open "GET", "photo.jpg", true
-  #     request.responseType = "arraybuffer"
+      # Let's get the first user's photo.
+      request.open "GET", "/photo.jpg", true
+      request.responseType = "arraybuffer"
 
-  #     # When the AJAX state changes, save the photo locally.
-  #     request.addEventListener "readystatechange", ->
-  #       if (request.readyState == 4) # readyState DONE
-  #         # Store Blob data.
-  #         blob = new Blob([request.response])
-  #         localforage.setItem "blobData", blob, (writeValue) ->
-  #           localforage.getItem "blobData", (readValue) ->
-  #             # Photo has been saved, do whatever happens next!
-  #             window._testValue = readValue
-  #             __utils__.findOne('.status').id = 'Blob'
+      # When the AJAX state changes, save the photo locally.
+      request.addEventListener "readystatechange", ->
+        if (request.readyState == 4) # readyState DONE
+          # Store Blob data.
+          blob = new Blob([request.response])
+          localforage.setItem "blobData", blob, (writeValue) ->
+            __utils__.echo readValue
+            localforage.getItem "blobData", (readValue) ->
+              # Photo has been saved, do whatever happens next!
+              window._testValue = readValue
+              __utils__.echo readValue
+              __utils__.findOne('.status').id = 'Blob'
 
-  #     request.send()
+      request.send()
 
-  #   @waitForSelector '#Blob', ->
-  #     test.assertEval ->
-  #       window._testValue.toString() is '[object Blob]'
-  #     , 'setItem() and getItem() for Blob returns value of type Blob'
+    @waitForSelector '#Blob', ->
+      test.assertEval ->
+        window._testValue.toString() is '[object Blob]'
+      , 'setItem() and getItem() for Blob returns value of type Blob'
 
   # Int8Array
   casper.then ->
