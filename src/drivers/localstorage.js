@@ -39,7 +39,7 @@
     var TYPE_UINT16ARRAY = 'ur16';
     var TYPE_UINT32ARRAY = 'ui32';
     var TYPE_FLOAT32ARRAY = 'fl32';
-    var TYPE_FLOAT64ARRAY = 'flt64';
+    var TYPE_FLOAT64ARRAY = 'fl64';
     var TYPE_SERIALIZED_MARKER_LENGTH = SERIALIZED_MARKER_LENGTH + TYPE_ARRAYBUFFER.length;
 
     // Remove all keys from the datastore, effectively destroying all data in
